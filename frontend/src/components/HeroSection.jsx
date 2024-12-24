@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { setSearchedQuery } from "@/redux/jobSlice";
 import { useNavigate } from "react-router-dom";
-import Card from "./Card.js"; // Import the Card component
+import Card from "./card.jsx"; // Import the Card component
 
 const HeroSection = () => {
   const [query, setQuery] = useState("");
