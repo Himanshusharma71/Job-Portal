@@ -1,0 +1,96 @@
+const express = require("express");
+const session = require("express-session");
+const app = express();
+const mongoose = require("mongoose");
+const path = require("path");
+const methodoverride = require("method-override");
+const ejsMate = require("ejs-mate");
+const ExpressError = require("./utils/ExpressError.js");
+const bodyParser = require('body-parser');
+const reviews = require("./models/review.js");
+const listings = require("./routes/listing.js");
+const passport = require("passport")
+const LocalStrategy = require("passport-local")
+const passportlocalMongoose = require("passport-local-mongoose")
+const User = require("./models/user.js"); 
+const flash = require("connect-flash");
+
+const MONGO_URL = "mongodb://127.0.0.1:27017/airbnb";
+
+// Connect to MongoDB
+async function main() {
+  await mongoose.connect(MONGO_URL);
+}
+main()
+  .then(() => console.log("Connected to DB"))
+  .catch((err) => console.log(err));
+
+// App configuration
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
+app.engine("ejs", ejsMate);
+
+// Middleware
+app.use(express.urlencoded({ extended: true }));
+app.use(methodoverride("_method"));
+app.use(express.static(path.join(__dirname, "public")));
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+
+app.use(
+  session({
+    secret: "secretstr", // Replace with a secure, random string
+    resave: false,           // Prevent resaving unchanged sessions
+    saveUninitialized: false, // Don't save uninitialized sessions
+    cookie: {
+      httpOnly: true,        // Prevents client-side access to the cookie
+      secure: false,         // Set to true in production with HTTPS
+      maxAge: 1000 * 60 * 60 * 24, // Cookie valid for 1 day
+    },
+  })
+);
+
+app.get("/", (req, res) => {
+  res.send("Hi, I am root");
+});
+
+// app.use((req, res, next) => {
+//   res.locals.success = req.flash("success")
+//   res.locals.error = req.flash("error")
+//   next();
+// })
+// app.use(flash());
+
+app.use("/demouser", async(req, res) => {
+  let fakeUser = new User({
+    email: "student@gmail.com",
+    username: "xyz-student",
+  });
+  let registeredUser = await User.register(fakeUser, "password123");
+  res.send(registeredUser)
+})
+
+app.use(passport.initialize());
+app.use(passport.session());
+app.use(new LocalStrategy(User.authenticate()))
+
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
+app.use("/listings", listings);
+app.use("/listings/:id/reviews", reviews);
+
+app.all("*", (req, res, next) => {
+  next(new ExpressError(404, "Page not found!"));
+});
+
+
+app.use((err, req, res, next) => {
+  let { statusCode = 500, message = "Something went wrong" } = err;
+  res.status(statusCode).render("error.ejs", { message });
+});
+
+
+app.listen(3000, () => {
+  console.log("Server is listening on port 3000");
+});
